@@ -2,11 +2,219 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}}; script-src 'nonce-{{nonce}}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="{{cssUri}}" rel="stylesheet">
   <title>Code Tutor</title>
 </head>
 <body>
-  <h2>Code Tutor</h2>
-  <p>Panel geöffnet.</p>
+
+  <div id="code-context">
+    <div class="label">Analysierter Code &mdash; <span id="lang-label">unbekannt</span></div>
+    <pre id="code-snippet">Kein Code ausgewählt.</pre>
+  </div>
+
+  <div id="toolbar">
+    <button id="new-session-btn" title="Neue Sitzung starten">↺ Neue Sitzung</button>
+  </div>
+
+  <div id="chat-container"></div>
+
+  <div id="input-area">
+    <textarea
+      id="user-input"
+      placeholder="Deine Antwort… (Enter zum Senden, Shift+Enter für Zeilenumbruch)"
+      rows="1"
+      disabled
+    ></textarea>
+    <button id="send-btn" disabled>Senden</button>
+  </div>
+
+  <script nonce="{{nonce}}">
+    const vscode = acquireVsCodeApi();
+
+    const chatContainer = document.getElementById('chat-container');
+    const userInput     = document.getElementById('user-input');
+    const sendBtn       = document.getElementById('send-btn');
+    const newSessionBtn = document.getElementById('new-session-btn');
+    const codeSnippet   = document.getElementById('code-snippet');
+    const langLabel     = document.getElementById('lang-label');
+
+    // ── Markdown renderer ──────────────────────────────────────────────────────
+    function escHtml(s) {
+      return s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function inlineFmt(s) {
+      return s
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+        .replace(/`([^`]+)`/g,     '<code>$1</code>');
+    }
+
+    function renderMarkdown(raw) {
+      const lines  = raw.split('\n');
+      const parts  = [];
+      let inOl     = false;
+      let inUl     = false;
+
+      function closeList() {
+        if (inOl) { parts.push('</ol>'); inOl = false; }
+        if (inUl) { parts.push('</ul>'); inUl = false; }
+      }
+
+      for (const line of lines) {
+        const t = line.trim();
+
+        if (!t) { closeList(); continue; }
+
+        // Numbered list item  1. text
+        const olM = t.match(/^(\d+)\.\s+(.+)$/);
+        if (olM) {
+          if (inUl) { parts.push('</ul>'); inUl = false; }
+          if (!inOl) { parts.push('<ol>'); inOl = true; }
+          parts.push('<li>' + inlineFmt(escHtml(olM[2])) + '</li>');
+          continue;
+        }
+
+        // Bullet list item  - text  or  * text
+        const ulM = t.match(/^[-*]\s+(.+)$/);
+        if (ulM) {
+          if (inOl) { parts.push('</ol>'); inOl = false; }
+          if (!inUl) { parts.push('<ul>'); inUl = true; }
+          parts.push('<li>' + inlineFmt(escHtml(ulM[1])) + '</li>');
+          continue;
+        }
+
+        closeList();
+
+        // Headings
+        const h3 = t.match(/^###\s+(.+)$/);
+        if (h3) { parts.push('<h3>' + inlineFmt(escHtml(h3[1])) + '</h3>'); continue; }
+        const h2 = t.match(/^##\s+(.+)$/);
+        if (h2) { parts.push('<h2>' + inlineFmt(escHtml(h2[1])) + '</h2>'); continue; }
+
+        // Plain paragraph
+        parts.push('<p>' + inlineFmt(escHtml(t)) + '</p>');
+      }
+
+      closeList();
+      return parts.join('');
+    }
+    // ──────────────────────────────────────────────────────────────────────────
+
+    function appendMessage(role, text) {
+      const wrapper = document.createElement('div');
+      wrapper.classList.add('msg-wrapper', role);
+
+      const label = document.createElement('div');
+      label.classList.add('msg-label');
+      label.textContent = role === 'ai' ? 'Tutor' : 'Du';
+
+      const bubble = document.createElement('div');
+      bubble.classList.add('message', role);
+
+      if (role === 'ai') {
+        bubble.innerHTML = renderMarkdown(text);
+      } else {
+        bubble.textContent = text;
+      }
+
+      wrapper.appendChild(label);
+      wrapper.appendChild(bubble);
+      chatContainer.appendChild(wrapper);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+      return bubble;
+    }
+
+    function setLoading(loading) {
+      sendBtn.disabled   = loading;
+      userInput.disabled = loading;
+      if (loading) {
+        const w = document.createElement('div');
+        w.classList.add('msg-wrapper', 'ai');
+        w.id = 'loading-wrapper';
+        const lbl = document.createElement('div');
+        lbl.classList.add('msg-label');
+        lbl.textContent = 'Tutor';
+        const b = document.createElement('div');
+        b.classList.add('message', 'ai', 'loading');
+        b.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+        w.appendChild(lbl);
+        w.appendChild(b);
+        chatContainer.appendChild(w);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      } else {
+        const lw = document.getElementById('loading-wrapper');
+        if (lw) lw.remove();
+      }
+    }
+
+    function sendMessage() {
+      const text = userInput.value.trim();
+      if (!text) return;
+      appendMessage('user', text);
+      userInput.value = '';
+      userInput.style.height = 'auto';
+      setLoading(true);
+      vscode.postMessage({ type: 'userMessage', text });
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    userInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    userInput.addEventListener('input', () => {
+      userInput.style.height = 'auto';
+      userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
+    });
+
+    newSessionBtn.addEventListener('click', () => {
+      vscode.postMessage({ type: 'newSession' });
+    });
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      switch (msg.type) {
+        case 'init':
+          codeSnippet.textContent      = msg.code;
+          langLabel.textContent        = msg.language || 'unbekannt';
+          chatContainer.innerHTML      = '';
+          userInput.disabled           = false;
+          sendBtn.disabled             = false;
+          userInput.focus();
+          break;
+        case 'aiResponse':
+          setLoading(false);
+          appendMessage('ai', msg.text);
+          userInput.disabled = false;
+          sendBtn.disabled   = false;
+          userInput.focus();
+          break;
+        case 'error':
+          setLoading(false);
+          appendMessage('ai', '⚠ Fehler: ' + msg.text);
+          userInput.disabled = false;
+          sendBtn.disabled   = false;
+          break;
+        case 'reset':
+          chatContainer.innerHTML = '';
+          codeSnippet.textContent = 'Kein Code ausgewählt.';
+          langLabel.textContent   = 'unbekannt';
+          userInput.disabled      = true;
+          sendBtn.disabled        = true;
+          break;
+      }
+    });
+  </script>
 </body>
 </html>
