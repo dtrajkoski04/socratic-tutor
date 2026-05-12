@@ -11,11 +11,26 @@
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-      {
-        "command": "codeTutor.explain",
-        "title": "Code Tutor: Code erklären"
-      }
-    ]
+    {
+      "command": "codeTutor.explain",
+      "title": "Code Tutor: Code erklären"
+    }
+  ],
+    "configuration": {
+        "title": "Code Didaktik Tutor",
+        "properties": {
+        "codeTutor.openaiApiKey": {
+            "type": "string",
+            "default": "",
+            "description": "OpenAI API Key für den Code Tutor"
+        },
+        "codeTutor.model": {
+            "type": "string",
+            "default": "gpt-4o",
+            "description": "OpenAI Modell (Standard: gpt-4o)"
+        }
+        }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
