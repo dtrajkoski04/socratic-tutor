@@ -11,11 +11,28 @@
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-    {
-      "command": "codeTutor.explain",
-      "title": "Code Tutor: Code erklären"
-    }
-  ],
+        {
+        "command": "codeTutor.explain",
+        "title": "Code Tutor: Code erklären"
+        }
+    ],
+    "menus": {
+        "editor/context": [
+        {
+            "command": "codeTutor.explain",
+            "when": "editorHasSelection",
+            "group": "navigation"
+        }
+        ]
+    },
+    "keybindings": [
+        {
+        "command": "codeTutor.explain",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorHasSelection"
+        }
+    ],
     "configuration": {
         "title": "Code Didaktik Tutor",
         "properties": {
@@ -31,7 +48,7 @@
         }
         }
     }
-  },
+},
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
