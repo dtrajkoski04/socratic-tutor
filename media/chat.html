@@ -70,7 +70,7 @@
       for (const line of lines) {
         const t = line.trim();
 
-        if (!t) { closeList(); continue; }
+        if (!t) { continue; }
 
         // Numbered list item  1. text
         const olM = t.match(/^(\d+)\.\s+(.+)$/);
