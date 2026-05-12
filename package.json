@@ -45,6 +45,12 @@
             "type": "string",
             "default": "gpt-4o",
             "description": "OpenAI Modell (Standard: gpt-4o)"
+        },
+        "codeTutor.language": {
+            "type": "string",
+            "enum": ["de", "en"],
+            "default": "de",
+            "description": "Tutor-Sprache: 'de' für Deutsch, 'en' für Englisch"
         }
         }
     }

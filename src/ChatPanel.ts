@@ -11,6 +11,7 @@ export class ChatPanel {
   private _history: ChatMessage[] = [];
   private _currentCode = '';
   private _currentLanguage = '';
+  private _currentLang: 'de' | 'en' = 'de';
 
   static createOrShow(extensionUri: vscode.Uri): ChatPanel {
     const column = vscode.ViewColumn.Beside;
@@ -53,21 +54,29 @@ export class ChatPanel {
     });
   }
 
-  startSession(code: string, language: string): void {
-    this._currentCode = code;
-    this._currentLanguage = language;
-    this._history = [];
-    this._panel.reveal(vscode.ViewColumn.Beside);
-    this._panel.webview.postMessage({
-      type: 'init',
-      code,
-      language,
-    });
-    this._askFirst();
-  }
+startSession(code: string, language: string): void {
+  this._currentCode = code;
+  this._currentLanguage = language;
+  this._history = [];
+  this._panel.reveal(vscode.ViewColumn.Beside);
+
+  const config = vscode.workspace.getConfiguration('codeTutor');
+  const lang = config.get<'de' | 'en'>('language', 'de');
+  this._currentLang = lang;
+
+  this._panel.webview.postMessage({
+    type: 'init',
+    code,
+    language,
+    lang,
+  });
+  this._askFirst();
+}
 
   private async _askFirst(): Promise<void> {
-    const firstUserMessage = `Ich habe folgenden Code markiert und möchte ihn verstehen:\n\`\`\`${this._currentLanguage}\n${this._currentCode}\n\`\`\``;
+    const firstUserMessage = this._currentLang === 'en'
+      ? `I have selected the following code and would like to understand it:\n\`\`\`${this._currentLanguage}\n${this._currentCode}\n\`\`\``
+      : `Ich habe folgenden Code markiert und möchte ihn verstehen:\n\`\`\`${this._currentLanguage}\n${this._currentCode}\n\`\`\``;
     this._history.push({ role: 'user', content: firstUserMessage });
 
     try {

@@ -32,6 +32,7 @@
 
   <script nonce="{{nonce}}">
     const vscode = acquireVsCodeApi();
+    let uiLang = 'de';
 
     const chatContainer = document.getElementById('chat-container');
     const userInput     = document.getElementById('user-input');
@@ -113,7 +114,7 @@
 
       const label = document.createElement('div');
       label.classList.add('msg-label');
-      label.textContent = role === 'ai' ? 'Tutor' : 'Du';
+      label.textContent = role === 'ai' ? 'Tutor' : (uiLang === 'en' ? 'You' : 'Du');
 
       const bubble = document.createElement('div');
       bubble.classList.add('message', role);
@@ -186,11 +187,19 @@
       const msg = event.data;
       switch (msg.type) {
         case 'init':
-          codeSnippet.textContent      = msg.code;
-          langLabel.textContent        = msg.language || 'unbekannt';
-          chatContainer.innerHTML      = '';
-          userInput.disabled           = false;
-          sendBtn.disabled             = false;
+          uiLang = msg.lang || 'de';
+          codeSnippet.textContent = msg.code;
+          langLabel.textContent   = msg.language || (uiLang === 'en' ? 'unknown' : 'unbekannt');
+          chatContainer.innerHTML = '';
+          userInput.disabled      = false;
+          sendBtn.disabled        = false;
+          userInput.placeholder   = uiLang === 'en'
+            ? 'Your answer… (Enter to send, Shift+Enter for new line)'
+            : 'Deine Antwort… (Enter zum Senden, Shift+Enter für Zeilenumbruch)';
+          sendBtn.textContent     = uiLang === 'en' ? 'Send' : 'Senden';
+          newSessionBtn.textContent = uiLang === 'en' ? '↺ New Session' : '↺ Neue Sitzung';
+          document.getElementById('code-context').querySelector('.label').textContent =
+            (uiLang === 'en' ? 'Selected Code — ' : 'Analysierter Code — ') + (msg.language || '');
           userInput.focus();
           break;
         case 'aiResponse':
@@ -202,7 +211,7 @@
           break;
         case 'error':
           setLoading(false);
-          appendMessage('ai', '⚠ Fehler: ' + msg.text);
+          appendMessage('ai', (uiLang === 'en' ? '⚠ Error: ' : '⚠ Fehler: ') + msg.text);
           userInput.disabled = false;
           sendBtn.disabled   = false;
           break;

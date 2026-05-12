@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import * as vscode from 'vscode';
-import { SOCRATIC_TUTOR_PROMPT } from './prompts';
+import { getTutorPrompt } from './prompts';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -26,9 +26,10 @@ export async function sendMessage(
   const client = getClient();
   const config = vscode.workspace.getConfiguration('codeTutor');
   const model = config.get<string>('model', 'gpt-4o');
+  const lang = config.get<'de' | 'en'>('language', 'de');
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: 'system', content: SOCRATIC_TUTOR_PROMPT },
+    { role: 'system', content: getTutorPrompt(lang) },
     ...history.map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
