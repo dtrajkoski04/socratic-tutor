@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { ChatPanel } from './ChatPanel';
 
 export function activate(context: vscode.ExtensionContext): void {
   const command = vscode.commands.registerCommand('codeTutor.explain', () => {
@@ -17,9 +18,8 @@ export function activate(context: vscode.ExtensionContext): void {
     const code = editor.document.getText(selection);
     const language = editor.document.languageId;
 
-    vscode.window.showInformationMessage(
-      `Code Tutor: ${language} – ${code.length} Zeichen markiert.`
-    );
+    const panel = ChatPanel.createOrShow(context.extensionUri);
+    panel.startSession(code, language);
   });
 
   context.subscriptions.push(command);
